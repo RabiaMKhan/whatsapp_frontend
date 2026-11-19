@@ -3,23 +3,24 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useCurrentUser } from '@/features/auth/store';
-import { useSocket, useSocketEvent } from '@/lib/socket/hooks';
+import { useRealtimeChannel, useRealtimeEvent } from '@/lib/realtime/hooks';
 import { scheduleMarkRead } from './actions';
 import { chatKeys } from './api';
 import { applyMessageToConversations, applyReadReceipt, upsertConversation, upsertMessage } from './cache';
 import { isViewing, useTypingStore } from './stores';
 
 /**
- * Bridges socket events into the query cache. Mounted once in the chat shell,
- * so updates arrive even for chats that aren't open.
+ * Bridges Ably events (published by the API to my private channel) into the
+ * query cache. Mounted once in the chat shell, so updates arrive even for
+ * chats that aren't open.
  */
 export function ChatRealtime() {
   const queryClient = useQueryClient();
   const me = useCurrentUser();
-  const socket = useSocket();
+  const channel = useRealtimeChannel();
   const setTyping = useTypingStore((state) => state.setTyping);
 
-  useSocketEvent('message:new', (message) => {
+  useRealtimeEvent('message:new', (message) => {
     upsertMessage(queryClient, message);
     setTyping(message.conversationId, message.senderId, false);
 
@@ -30,27 +31,26 @@ export function ChatRealtime() {
     if (!mine && viewing) scheduleMarkRead(queryClient, message.conversationId);
   });
 
-  useSocketEvent('conversation:new', (conversation) => upsertConversation(queryClient, conversation));
+  useRealtimeEvent('conversation:new', (conversation) => upsertConversation(queryClient, conversation));
 
-  useSocketEvent('conversation:read', (payload) => applyReadReceipt(queryClient, payload, me.id));
+  useRealtimeEvent('conversation:read', (payload) => applyReadReceipt(queryClient, payload, me.id));
 
-  useSocketEvent('typing:update', ({ conversationId, userId, isTyping }) => {
+  useRealtimeEvent('typing:update', ({ conversationId, userId, isTyping }) => {
     if (userId !== me.id) setTyping(conversationId, userId, isTyping);
   });
 
-  // Events sent while we were disconnected are lost, so refetch after a reconnect.
+  // After a short drop Ably resumes and replays what we missed. If the gap was
+  // too long (resumed: false), events were lost, so refetch everything.
   useEffect(() => {
-    if (!socket) return;
-    let hadConnected = socket.connected;
-    const onConnect = () => {
-      if (hadConnected) void queryClient.invalidateQueries({ queryKey: chatKeys.all });
-      hadConnected = true;
+    if (!channel) return;
+    let attachedBefore = channel.state === 'attached';
+    const onAttached = (change: { resumed: boolean }) => {
+      if (attachedBefore && !change.resumed) void queryClient.invalidateQueries({ queryKey: chatKeys.all });
+      attachedBefore = true;
     };
-    socket.on('connect', onConnect);
-    return () => {
-      socket.off('connect', onConnect);
-    };
-  }, [socket, queryClient]);
+    channel.on('attached', onAttached);
+    return () => channel.off('attached', onAttached);
+  }, [channel, queryClient]);
 
   return null;
 }

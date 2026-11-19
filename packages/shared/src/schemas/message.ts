@@ -17,5 +17,11 @@ export const conversationRefSchema = z.object({
   conversationId: objectIdSchema,
 });
 
+/** POST /api/conversations/:id/typing */
+export const typingSchema = z.object({
+  isTyping: z.boolean(),
+});
+
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
+export type TypingInput = z.infer<typeof typingSchema>;
 export type ConversationRef = z.infer<typeof conversationRefSchema>;

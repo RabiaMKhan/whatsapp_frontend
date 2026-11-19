@@ -12,9 +12,8 @@ const nextConfig: NextConfig = {
     return [{ source: "/", destination: "/chat", permanent: false }];
   },
   // Production: the browser calls /api on this site and Vercel forwards it to
-  // the Express API (API_PROXY_TARGET, e.g. https://relay-api.onrender.com).
-  // The refresh cookie is then first-party; Safari blocks cookies set by
-  // another site. Socket.io connects to the API directly (NEXT_PUBLIC_SOCKET_URL).
+  // the Express API (API_PROXY_TARGET, its own Vercel project). The refresh
+  // cookie is then first-party; Safari blocks cookies set by another site.
   async rewrites() {
     const target = process.env.API_PROXY_TARGET?.replace(/\/+$/, "");
     return target ? [{ source: "/api/:path*", destination: `${target}/api/:path*` }] : [];

@@ -1,6 +1,6 @@
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { ChatShell } from '@/features/chat/components/chat-shell';
-import { SocketLifecycle } from '@/lib/socket/socket-lifecycle';
+import { RealtimeLifecycle } from '@/lib/realtime/realtime-lifecycle';
 
 // The session lives in browser memory, so the server can't prerender what's
 // behind <AuthGate> (it shows a loader until the session is restored).
@@ -11,7 +11,7 @@ export const instant = false;
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate>
-      <SocketLifecycle />
+      <RealtimeLifecycle />
       <ChatShell>{children}</ChatShell>
     </AuthGate>
   );

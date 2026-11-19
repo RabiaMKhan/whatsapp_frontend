@@ -4,6 +4,7 @@ import type {
   CreateConversationInput,
   CreateConversationResponse,
   MessagesResponse,
+  MessageResponse,
   ReadResponse,
   UsersResponse,
 } from '@chat/shared';
@@ -40,6 +41,16 @@ export const chatApi = {
       params: before ? { before } : undefined,
     });
     return data;
+  },
+
+  /** Same clientId again → the saved message comes back (no duplicate). */
+  async sendMessage(conversationId: string, input: { body: string; clientId: string }) {
+    const { data } = await api.post<MessageResponse>(`/conversations/${conversationId}/messages`, input);
+    return data.message;
+  },
+
+  async setTyping(conversationId: string, isTyping: boolean) {
+    await api.post(`/conversations/${conversationId}/typing`, { isTyping });
   },
 
   async markRead(conversationId: string) {

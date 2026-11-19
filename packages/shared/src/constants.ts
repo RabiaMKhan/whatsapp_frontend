@@ -33,7 +33,22 @@ export const INVITE = {
   LIST_LIMIT: 50,
 } as const;
 
-/** Error codes the API and socket layer return in `error.code`. */
+/** Real-time updates over Ably. */
+export const REALTIME = {
+  /** Presence channel: every signed-in tab enters it, so others see who is online. */
+  ONLINE_CHANNEL: 'online',
+  /** Ably tokens last this long; the Ably client renews them by itself. */
+  TOKEN_TTL_MINUTES: 60,
+  /** While the app is open it tells the API "still here" this often (saves lastSeenAt). */
+  HEARTBEAT_SECONDS: 60,
+  /** The app sends "typing" again this often while the user keeps typing. */
+  TYPING_REPEAT_SECONDS: 2.5,
+} as const;
+
+/** Each user's private channel: the API publishes, only that user may subscribe. */
+export const userChannel = (userId: string) => `user:${userId}`;
+
+/** Error codes the API returns in `error.code`. */
 export const ERROR_CODES = {
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   UNAUTHORIZED: 'UNAUTHORIZED',
