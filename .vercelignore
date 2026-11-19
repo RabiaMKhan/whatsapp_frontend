@@ -2,3 +2,8 @@
 .env
 .env.*
 !.env.example
+
+# Build output and caches: Vercel builds from source.
+.next
+node_modules
+*.tsbuildinfo
