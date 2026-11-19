@@ -1,33 +1,45 @@
 'use client';
 
-import { SearchIcon, SquarePenIcon, XIcon } from 'lucide-react';
+import { SearchIcon, SquarePenIcon, UserPlusIcon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Logo } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { InviteDialog } from '@/features/invites/components/invite-dialog';
 import { cn } from '@/lib/utils';
 import { ConversationList } from './conversation-list';
 import { NewConversationDialog } from './new-conversation-dialog';
 import { UserMenu } from './user-menu';
 
-/** Left column: brand, new chat, search, conversation list, account. */
+/** Left column: brand, invite + new chat, search, conversation list, account. */
 export function Sidebar({ className }: { className?: string }) {
   const [search, setSearch] = useState('');
   const [newChatOpen, setNewChatOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   return (
     <aside className={cn('flex h-full flex-col border-r bg-sidebar text-sidebar-foreground', className)}>
       <header className="flex h-14 shrink-0 items-center justify-between px-4">
         <Logo />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="New conversation" onClick={() => setNewChatOpen(true)}>
-              <SquarePenIcon />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">New conversation</TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Invite people" onClick={() => setInviteOpen(true)}>
+                <UserPlusIcon />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Invite people</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="New conversation" onClick={() => setNewChatOpen(true)}>
+                <SquarePenIcon />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">New conversation</TooltipContent>
+          </Tooltip>
+        </div>
       </header>
 
       <div className="px-3 pb-3">
@@ -66,6 +78,7 @@ export function Sidebar({ className }: { className?: string }) {
       </footer>
 
       <NewConversationDialog open={newChatOpen} onOpenChange={setNewChatOpen} />
+      <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} />
     </aside>
   );
 }

@@ -23,6 +23,16 @@ export const AUTH_CODE = {
   RESEND_COOLDOWN_SECONDS: 60,
 } as const;
 
+/** Email invites to people who are not on the app yet. */
+export const INVITE = {
+  /** The same person can be invited again by the same user after this long. */
+  RESEND_COOLDOWN_MINUTES: 60,
+  /** Invites one user can send in 24 hours (stops the feature being used for spam). */
+  DAILY_LIMIT: 20,
+  /** How many sent invites the list shows. */
+  LIST_LIMIT: 50,
+} as const;
+
 /** Error codes the API and socket layer return in `error.code`. */
 export const ERROR_CODES = {
   VALIDATION_ERROR: 'VALIDATION_ERROR',

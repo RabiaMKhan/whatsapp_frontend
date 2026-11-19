@@ -3,6 +3,7 @@ export * from './avatar';
 export * from './schemas/common';
 export * from './schemas/auth';
 export * from './schemas/conversation';
+export * from './schemas/invite';
 export * from './schemas/message';
 export * from './types/models';
 export * from './types/socket';

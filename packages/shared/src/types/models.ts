@@ -56,6 +56,18 @@ export interface Message {
   editedAt: string | null;
 }
 
+export type InviteStatus = 'pending' | 'joined';
+
+/** An email invite the signed-in user sent. */
+export interface Invite {
+  id: string;
+  email: string;
+  status: InviteStatus;
+  /** Last time the invite email went out (re-inviting updates it). */
+  lastSentAt: string;
+  joinedAt: string | null;
+}
+
 /* ---------- REST responses ---------- */
 
 export interface AuthResponse {
@@ -109,6 +121,18 @@ export interface MessageResponse {
 
 export interface ReadResponse {
   lastReadAt: string;
+}
+
+/**
+ * POST /api/invites. If the person already has an account, no email is sent
+ * and their profile comes back instead, so the app can offer to start a chat.
+ */
+export type CreateInviteResponse =
+  | { status: 'sent'; invite: Invite }
+  | { status: 'already_member'; user: PublicUser };
+
+export interface InvitesResponse {
+  invites: Invite[];
 }
 
 export interface ApiErrorBody {

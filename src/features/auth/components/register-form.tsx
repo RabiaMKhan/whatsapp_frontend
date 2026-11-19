@@ -1,8 +1,9 @@
 'use client';
 
-import { LIMITS, registerSchema } from '@chat/shared';
+import { APP_NAME, emailSchema, LIMITS, registerSchema } from '@chat/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { MailCheckIcon } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -15,12 +16,16 @@ import { register } from '../session';
 import { FormAlert } from './form-alert';
 import { PasswordInput } from './password-input';
 
+/** Uses useSearchParams: the (auth) layout provides the Suspense boundary. */
 export function RegisterForm() {
   const router = useRouter();
+  // Invite links open /register?email=… so the invited address is filled in.
+  const invited = emailSchema.safeParse(useSearchParams().get('email') ?? '');
+  const invitedEmail = invited.success ? invited.data : null;
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: '', email: '', password: '' },
+    defaultValues: { name: '', email: invitedEmail ?? '', password: '' },
   });
   const { errors, isSubmitting } = form.formState;
 
@@ -39,6 +44,16 @@ export function RegisterForm() {
     <form onSubmit={onSubmit} noValidate>
       <FieldGroup className="gap-5">
         <FormAlert message={serverError} />
+
+        {invitedEmail && (
+          <div className="flex gap-2.5 rounded-lg border bg-muted/40 px-3 py-2.5 text-sm">
+            <MailCheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+            <span className="text-muted-foreground">
+              You were invited to {APP_NAME}. Sign up with this email and the person who invited you will be in your
+              chats.
+            </span>
+          </div>
+        )}
 
         <Field data-invalid={!!errors.name}>
           <FieldLabel htmlFor="name">Full name</FieldLabel>
