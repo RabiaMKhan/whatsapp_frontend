@@ -1,7 +1,7 @@
 'use client';
 
-import { LIMITS, type PublicUser } from '@chat/shared';
-import { CheckIcon, XIcon } from 'lucide-react';
+import { APP_NAME, createInviteSchema, LIMITS, type PublicUser } from '@chat/shared';
+import { CheckIcon, SendIcon, XIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { UserAvatar } from '@/components/user-avatar';
+import { useSendInvite } from '@/features/invites/hooks';
 import { getErrorMessage } from '@/lib/api/http';
 import { firstName } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -46,6 +47,10 @@ function NewConversationForm({ onDone }: { onDone: () => void }) {
   const debouncedSearch = useDebouncedValue(search.trim());
   const users = useUserSearch(debouncedSearch);
   const create = useCreateConversation();
+  const sendInvite = useSendInvite();
+  // Searched a full email address that matches nobody → offer to invite it.
+  const parsedEmail = createInviteSchema.safeParse({ email: debouncedSearch });
+  const inviteEmail = parsedEmail.success ? parsedEmail.data.email : null;
 
   const isGroup = selected.length >= 2;
   const canSubmit = selected.length > 0 && (!isGroup || groupName.trim().length > 0) && !create.isPending;
@@ -69,6 +74,20 @@ function NewConversationForm({ onDone }: { onDone: () => void }) {
       );
       onDone();
       router.push(`/chat/${conversation.id}`);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  async function invite(email: string) {
+    try {
+      const result = await sendInvite.mutateAsync({ email });
+      if (result.status === 'already_member') {
+        toast.info(`${result.user.name} is already on ${APP_NAME}.`);
+        return;
+      }
+      toast.success(`Invite sent to ${email}. You'll get a chat with them when they join.`);
+      onDone();
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -112,8 +131,23 @@ function NewConversationForm({ onDone }: { onDone: () => void }) {
             </div>
           ) : (
             <>
-              <CommandEmpty>{debouncedSearch ? 'No one matches that search.' : 'No other people yet.'}</CommandEmpty>
-              <CommandGroup heading={debouncedSearch ? 'Results' : 'People'}>
+              <CommandEmpty>
+                {inviteEmail ? (
+                  <div className="flex flex-col items-center gap-3 px-4">
+                    <span>No one with that email is on {APP_NAME} yet.</span>
+                    <Button size="sm" onClick={() => invite(inviteEmail)} disabled={sendInvite.isPending}>
+                      {sendInvite.isPending ? <Spinner /> : <SendIcon />}
+                      Invite {inviteEmail}
+                    </Button>
+                  </div>
+                ) : debouncedSearch ? (
+                  'No one matches that search.'
+                ) : (
+                  'No other people yet.'
+                )}
+              </CommandEmpty>
+              {users.data && users.data.length > 0 && (
+                <CommandGroup heading={debouncedSearch ? 'Results' : 'People'}>
                 {users.data?.map((user) => {
                   const isSelected = selected.some((u) => u.id === user.id);
                   return (
@@ -141,6 +175,7 @@ function NewConversationForm({ onDone }: { onDone: () => void }) {
                   );
                 })}
               </CommandGroup>
+              )}
             </>
           )}
         </CommandList>
