@@ -48,6 +48,18 @@ npm run dev               # http://localhost:3005
 
 `.env.local` (copy from `.env.example`): `NEXT_PUBLIC_API_URL` (default `http://localhost:4000`), optional `NEXT_PUBLIC_SOCKET_URL`. These are public (sent to the browser), so never put secrets here.
 
+## Deploying (Vercel)
+
+The API runs on another site (Render), so the web app proxies it:
+
+| Variable | Value | Why |
+| --- | --- | --- |
+| `NEXT_PUBLIC_API_URL` | `/` | The browser calls `/api` on the web app's own domain |
+| `API_PROXY_TARGET` | `https://<api>.onrender.com` | `next.config.ts` rewrites `/api/*` there (read at build time) |
+| `NEXT_PUBLIC_SOCKET_URL` | `https://<api>.onrender.com` | The proxy can't carry WebSockets, so Socket.io connects directly (it uses the access token, not the cookie) |
+
+Proxying keeps the refresh cookie first-party. Without it, Safari (and any browser blocking third-party cookies) drops the session on every reload. All three are build-time values: redeploy after changing them.
+
 ## Auth pages
 
 `/register` → `/verify-email` (6-box code input, auto-submits, resend countdown) · `/login` (unverified accounts are sent to `/verify-email`) · `/forgot-password` → `/reset-password`. The access token lives only in memory; the httpOnly refresh cookie restores the session on reload. The email waiting for a code is kept in `sessionStorage`, never in the URL.
