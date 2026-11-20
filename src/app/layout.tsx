@@ -10,7 +10,7 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 
 export const metadata: Metadata = {
   title: { default: APP_NAME, template: `%s · ${APP_NAME}` },
-  description: 'Real-time team messaging built with Next.js, Express and Socket.io.',
+  description: 'Real-time team messaging built with Next.js, Express and Ably.',
 };
 
 export const viewport: Viewport = {

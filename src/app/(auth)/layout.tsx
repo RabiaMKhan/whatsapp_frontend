@@ -29,7 +29,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          © 2026 {APP_NAME}. Real-time messaging with Socket.io.
+          © 2026 {APP_NAME}. Real-time messaging with Ably.
         </p>
       </div>
       <BrandPanel />
