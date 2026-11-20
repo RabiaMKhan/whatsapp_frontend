@@ -1,11 +1,11 @@
 'use client';
 
 import type { RealtimeEventName, RealtimeEvents } from '@chat/shared';
-import type * as Ably from 'ably';
+import type { InboundMessage, RealtimeChannel } from '@ably/pubsub-device';
 import { useEffect, useEffectEvent } from 'react';
 import { useRealtimeStore } from './store';
 
-export function useRealtimeChannel(): Ably.RealtimeChannel | null {
+export function useRealtimeChannel(): RealtimeChannel | null {
   return useRealtimeStore((state) => state.channel);
 }
 
@@ -29,7 +29,7 @@ export function useRealtimeEvent<E extends RealtimeEventName>(
 
   useEffect(() => {
     if (!channel) return;
-    const listener = (message: Ably.InboundMessage) => onEvent(message.data as RealtimeEvents[E]);
+    const listener = (message: InboundMessage) => onEvent(message.data as RealtimeEvents[E]);
     void channel.subscribe(event, listener).catch(() => {});
     return () => channel.unsubscribe(event, listener);
   }, [channel, event]);

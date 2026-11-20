@@ -1,14 +1,19 @@
 'use client';
 
 import type { Conversation } from '@chat/shared';
-import { ChevronLeftIcon, UsersIcon } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ChevronLeftIcon, RefreshCwIcon, UsersIcon } from 'lucide-react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { UserAvatar } from '@/components/user-avatar';
 import { usePresenceStore } from '@/features/presence/store';
 import { firstName, formatLastSeen } from '@/lib/format';
+import { cn } from '@/lib/utils';
+import { chatKeys } from '../api';
 import { useTypingUserIds } from '../stores';
 import { findMember, getConversationTitle, getDirectPeer, typingLabel } from '../utils';
 import { ConversationAvatar } from './conversation-avatar';
@@ -57,7 +62,40 @@ export function ConversationHeader({ conversation, meId }: { conversation: Conve
         </p>
       </div>
       {conversation.type === 'group' && <MembersButton conversation={conversation} meId={meId} />}
+      <RefreshButton conversationId={conversation.id} />
     </header>
+  );
+}
+
+/**
+ * Reloads this chat and the conversation list from the server. Live updates
+ * normally make this unnecessary; it's a manual fallback if anything was missed.
+ */
+function RefreshButton({ conversationId }: { conversationId: string }) {
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function refresh() {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) }),
+        queryClient.invalidateQueries({ queryKey: chatKeys.conversations() }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="icon" onClick={refresh} disabled={refreshing} aria-label="Refresh messages">
+          <RefreshCwIcon className={cn(refreshing && 'animate-spin')} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">Refresh messages</TooltipContent>
+    </Tooltip>
   );
 }
 

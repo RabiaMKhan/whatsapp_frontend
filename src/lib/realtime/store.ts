@@ -1,5 +1,13 @@
 import { REALTIME, userChannel } from '@chat/shared';
-import * as Ably from 'ably';
+// @ably/pubsub-device (not the old `ably` package): Ably accounts on MAU pricing reject
+// the old SDK. A device connection must carry a clientId, which our tokens do.
+import {
+  createClient,
+  type PresenceMessage,
+  type PubSubClient,
+  type RealtimeChannel,
+  type TokenRequest,
+} from '@ably/pubsub-device';
 import { create } from 'zustand';
 import { api } from '@/lib/api/client';
 import { toApiError } from '@/lib/api/http';
@@ -14,9 +22,9 @@ import { usePresenceStore } from '@/features/presence/store';
 export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'offline';
 
 interface RealtimeState {
-  client: Ably.Realtime | null;
+  client: PubSubClient | null;
   /** My private channel: the API publishes every event I need here. */
-  channel: Ably.RealtimeChannel | null;
+  channel: RealtimeChannel | null;
   status: ConnectionStatus;
 }
 
@@ -47,10 +55,10 @@ function sendHeartbeat() {
 export function startRealtime(userId: string): void {
   if (useRealtimeStore.getState().client) return;
 
-  const client = new Ably.Realtime({
+  const client = createClient({
     authCallback: async (_params, callback) => {
       try {
-        const { data } = await api.post<Ably.TokenRequest>('/realtime/token');
+        const { data } = await api.post<TokenRequest>('/realtime/token');
         callback(null, data);
       } catch (error) {
         const apiError = toApiError(error);
@@ -96,11 +104,11 @@ export function startRealtime(userId: string): void {
  * each member with the clientId from our token, so nobody can appear as
  * someone else. A user with two tabs is online until the last one leaves.
  */
-function trackPresence(client: Ably.Realtime) {
+function trackPresence(client: PubSubClient) {
   const online = client.channels.get(REALTIME.ONLINE_CHANNEL);
   const { setSnapshot, update } = usePresenceStore.getState();
 
-  const sync = async (changed?: Ably.PresenceMessage) => {
+  const sync = async (changed?: PresenceMessage) => {
     const members = await online.presence.get();
     const ids = [...new Set(members.map((member) => member.clientId))];
     setSnapshot(ids);
