@@ -1,7 +1,7 @@
 'use client';
 
-import { useConnectionStatus } from '@/lib/socket/hooks';
-import type { ConnectionStatus as Status } from '@/lib/socket/store';
+import { useConnectionStatus } from '@/lib/realtime/hooks';
+import type { ConnectionStatus as Status } from '@/lib/realtime/store';
 import { cn } from '@/lib/utils';
 
 const STATUS: Record<Status, { label: string; dot: string }> = {

@@ -1,27 +1,21 @@
 'use client';
 
+import { REALTIME } from '@chat/shared';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/store';
-import { useSocketStore } from '@/lib/socket/store';
+import { getErrorMessage } from '@/lib/api/http';
 import { chatApi } from './api';
 import { applyMessageToConversations, setUnreadCount, upsertMessage } from './cache';
 import type { ChatMessage } from './types';
-
-const SEND_TIMEOUT_MS = 10_000;
 
 /* ---------------------------------------------------------------- read */
 
 /** Clear the badge now and tell the server (which sends read receipts to the others). */
 export function markConversationRead(queryClient: QueryClient, conversationId: string): void {
   setUnreadCount(queryClient, conversationId, 0);
-  const socket = useSocketStore.getState().socket;
-  if (socket?.connected) {
-    socket.emit('conversation:read', { conversationId }, () => {});
-  } else {
-    chatApi.markRead(conversationId).catch(() => {});
-  }
+  chatApi.markRead(conversationId).catch(() => {});
 }
 
 const readTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -43,8 +37,8 @@ export function scheduleMarkRead(queryClient: QueryClient, conversationId: strin
 /**
  * Optimistic send:
  *  1. Show the message right away with status "sending".
- *  2. Emit message:send and wait for the server's ack (max 10 s).
- *  3. Ack ok → swap in the saved message. Error/timeout → status "failed".
+ *  2. POST it to the API (which saves it and publishes message:new with Ably).
+ *  3. Success → swap in the saved message. Error/timeout → status "failed".
  * Retrying reuses the clientId, so if the first try did reach the server,
  * it is not saved twice.
  */
@@ -69,19 +63,12 @@ export function useSendMessage(conversationId: string) {
       upsertMessage(queryClient, optimistic);
 
       try {
-        const socket = useSocketStore.getState().socket;
-        if (!socket) throw new Error('You are offline');
-        const response = await socket
-          .timeout(SEND_TIMEOUT_MS)
-          .emitWithAck('message:send', { conversationId, body, clientId });
-        if (!response.ok) throw new Error(response.error.message);
-
-        upsertMessage(queryClient, response.data);
-        applyMessageToConversations(queryClient, response.data, { countAsUnread: false });
+        const saved = await chatApi.sendMessage(conversationId, { body, clientId });
+        upsertMessage(queryClient, saved);
+        applyMessageToConversations(queryClient, saved, { countAsUnread: false });
       } catch (error) {
         upsertMessage(queryClient, { ...optimistic, status: 'failed' });
-        const message = error instanceof Error && error.message !== 'operation has timed out' ? error.message : null;
-        toast.error(message ?? 'Message not sent. Check your connection and retry.');
+        toast.error(getErrorMessage(error));
       }
     },
     [queryClient, me.id, conversationId],
@@ -90,7 +77,7 @@ export function useSendMessage(conversationId: string) {
 
 /* -------------------------------------------------------------- typing */
 
-const TYPING_REPEAT_MS = 2_500; // resend typing:start while the user keeps typing
+const TYPING_REPEAT_MS = REALTIME.TYPING_REPEAT_SECONDS * 1000; // repeat "typing" while the user keeps typing
 const TYPING_IDLE_MS = 4_000; // no keystroke for this long → typing:stop
 
 /** Call ping() on every keystroke; stop() when the message is sent or cleared. */
@@ -102,13 +89,13 @@ export function useTypingEmitter(conversationId: string) {
     clearTimeout(idleTimer.current);
     if (!lastStart.current) return;
     lastStart.current = 0;
-    useSocketStore.getState().socket?.emit('typing:stop', { conversationId });
+    chatApi.setTyping(conversationId, false).catch(() => {});
   }, [conversationId]);
 
   const ping = useCallback(() => {
     const now = Date.now();
     if (now - lastStart.current > TYPING_REPEAT_MS) {
-      useSocketStore.getState().socket?.emit('typing:start', { conversationId });
+      chatApi.setTyping(conversationId, true).catch(() => {});
       lastStart.current = now;
     }
     clearTimeout(idleTimer.current);

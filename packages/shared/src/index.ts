@@ -6,4 +6,4 @@ export * from './schemas/conversation';
 export * from './schemas/invite';
 export * from './schemas/message';
 export * from './types/models';
-export * from './types/socket';
+export * from './types/realtime';

@@ -1,22 +1,22 @@
 # WhatsApp Frontend: Relay chat web app
 
-Web app for the Relay real-time chat: **Next.js 16 (App Router) + Tailwind v4 + shadcn/ui + socket.io-client**. It needs the API from [whatsapp_backend](https://github.com/RabiaMKhan/whatsapp_backend) running.
+Web app for the Relay real-time chat: **Next.js 16 (App Router) + Tailwind v4 + shadcn/ui + Ably**. It needs the API from [whatsapp_backend](https://github.com/RabiaMKhan/whatsapp_backend) running.
 
 ## Stack
 
-Next.js 16 (Cache Components), React 19, Tailwind v4, shadcn/ui (Radix, Nova preset), TanStack Query, Zustand, React Hook Form + Zod, socket.io-client, date-fns.
+Next.js 16 (Cache Components), React 19, Tailwind v4, shadcn/ui (Radix, Nova preset), TanStack Query, Zustand, React Hook Form + Zod, Ably (real-time), date-fns.
 
 ## Project structure
 
 ```
 src/
   app/(auth)/        /login, /register, /verify-email, /forgot-password, /reset-password
-  app/(chat)/        /chat and /chat/[conversationId] (AuthGate + socket + app shell)
+  app/(chat)/        /chat and /chat/[conversationId] (AuthGate + real-time + app shell)
   features/auth/     session, auth store, forms, code input, guards
   features/chat/     queries, cache updates, realtime bridge, send/typing/read actions, UI
   features/presence/ who is online
   lib/api/           axios client (auto refresh on 401)
-  lib/socket/        socket store, lifecycle, useSocketEvent hook
+  lib/realtime/      Ably client (token from the API), presence, heartbeat, useRealtimeEvent hook
   components/ui/     shadcn components
 packages/shared/     types + Zod schemas shared with the backend
 ```
@@ -46,19 +46,20 @@ npm run dev               # http://localhost:3005
 
 ## Environment variables
 
-`.env.local` (copy from `.env.example`): `NEXT_PUBLIC_API_URL` (default `http://localhost:4000`), optional `NEXT_PUBLIC_SOCKET_URL`. These are public (sent to the browser), so never put secrets here.
+`.env.local` (copy from `.env.example`): `NEXT_PUBLIC_API_URL` (default `http://localhost:4000`). These are public (sent to the browser), so never put secrets here.
 
 ## Deploying (Vercel)
 
-The API runs on another site (Render), so the web app proxies it:
+The API is its own Vercel project (another site), so the web app proxies it:
 
 | Variable | Value | Why |
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | `/` | The browser calls `/api` on the web app's own domain |
-| `API_PROXY_TARGET` | `https://<api>.onrender.com` | `next.config.ts` rewrites `/api/*` there (read at build time) |
-| `NEXT_PUBLIC_SOCKET_URL` | `https://<api>.onrender.com` | The proxy can't carry WebSockets, so Socket.io connects directly (it uses the access token, not the cookie) |
+| `API_PROXY_TARGET` | `https://<api-project>.vercel.app` | `next.config.ts` rewrites `/api/*` there (read at build time) |
 
-Proxying keeps the refresh cookie first-party. Without it, Safari (and any browser blocking third-party cookies) drops the session on every reload. All three are build-time values: redeploy after changing them.
+Proxying keeps the refresh cookie first-party. Without it, Safari (and any browser blocking third-party cookies) drops the session on every reload. Both are build-time values: redeploy after changing them.
+
+Real-time updates come from Ably: the app asks the API for a short-lived Ably token (`POST /api/realtime/token`) and subscribes to its own private channel. No Ably settings are needed in the web app.
 
 ## Auth pages
 
@@ -72,11 +73,12 @@ Proxying keeps the refresh cookie first-party. Without it, Safari (and any brows
 | New conversation | Search people; one person → direct chat (reuses an existing one), 2+ → named group |
 | Conversation | Messages grouped by sender (5 min gap), day dividers, intro at the start of history, sender names + avatars in groups |
 | History | Infinite scroll upward (cursor pages of 30). `flex-col-reverse` scroller: opens at the newest message, no jump when older pages load, "jump to latest" button |
-| Sending | Optimistic bubble → server ack (10 s timeout) → saved message. Failed → "Not sent. Retry" (same `clientId`, so never duplicated) |
+| Sending | Optimistic bubble → `POST /messages` → saved message (others get it through Ably). Failed → "Not sent. Retry" (same `clientId`, so never duplicated) |
 | Receipts | "Sent" / "Seen" (direct) or "Seen by N / everyone" (group) under your newest message |
-| Typing | Sent while typing (repeats every 2.5 s, stops after 4 s idle); shown in header, list and above the composer |
+| Typing | `POST /typing` while typing (repeats every 2.5 s, stops after 4 s idle); shown in header, list and above the composer |
 | Read state | Opening a chat (or returning to the tab) marks it read; messages arriving in the open chat never count as unread |
-| Reliability | Socket events update the TanStack Query cache directly; after a reconnect all chat queries are refetched |
+| Reliability | Ably events update the TanStack Query cache directly. Short drops are resumed with missed events replayed; after a longer gap all chat queries are refetched |
+| Presence | Ably presence on one `online` channel (a user with two tabs stays online until the last closes); "last seen" is saved by a heartbeat every 60 s |
 | Layout | Desktop: two columns. Mobile: list on `/chat`, conversation on `/chat/[id]` with a back button |
 
 ## Design system
@@ -88,7 +90,7 @@ Proxying keeps the refresh cookie first-party. Without it, Safari (and any brows
 
 ## Shared types (`packages/shared`)
 
-Zod schemas, API response types and the typed Socket.io event contract. **The same folder lives in both `whatsapp_backend` and `whatsapp_frontend`.** When you change it in one repo, copy the change to the other so both sides keep the same contract. (Later this can become a published npm package or a git submodule.)
+Zod schemas, API response types and the typed real-time event contract. **The same folder lives in both `whatsapp_backend` and `whatsapp_frontend`.** When you change it in one repo, copy the change to the other so both sides keep the same contract. (Later this can become a published npm package or a git submodule.)
 
 ## Next steps
 
